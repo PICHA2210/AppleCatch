@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>りんごをつかまえよう Ver3</title>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#ffe8f4;overflow:hidden;touch-action:manipulation;}
+#app{height:100vh;display:flex;flex-direction:column;}
+header{padding:10px 8px;background:#fff8fc;text-align:center;}
+h1{margin:4px 0;color:#ff5c9a;font-size:30px;}
+#controls{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+button{border:none;border-radius:999px;padding:9px 14px;font-size:18px;background:#ff90ba;color:white;}
+.time.active{background:#ff5f97;}
+#status{display:flex;justify-content:space-around;padding:8px;font-size:22px;color:#d65784;font-weight:bold;}
+
+#game{
+position:relative;
+flex:1;
+overflow:hidden;
+background:
+radial-gradient(circle,#fff 2px,transparent 3px) 0 0/40px 40px,
+linear-gradient(#ffeaf5,#ffd7eb);
+}
+
+.apple{
+position:absolute;
+font-size:60px;
+transform:translate(-50%,-50%);
+}
+
+#message{
+position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+pointer-events:none;font-size:36px;color:#ff4c91;
+}
+
+#basketArea{
+height:145px;              /* 少し低めに */
+background:#fff8e5;
+border-top:4px dashed #f2c36a;
+position:relative;
+overflow:hidden;
+}
+
+#basket{
+position:absolute;
+bottom:4px;
+left:50%;
+transform:translateX(-50%);
+font-size:72px;            /* 小さく */
+transition:left .08s linear;
+}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+<h1>🍎 りんごを つかまえよう 🧺</h1>
+<div id="controls">
+<button class="time active" data-sec="10">10びょう</button>
+<button class="time" data-sec="20">20びょう</button>
+<button class="time" data-sec="30">30びょう</button>
+<button id="start">スタート</button>
+<button id="reset">やりなおし</button>
+</div>
+</header>
+
+<div id="status">
+<div>⏰ <span id="time">10</span></div>
+<div>🍎 <span id="score">0</span>こ</div>
+</div>
+
+<div id="game"><div id="message"></div></div>
+
+<div id="basketArea">
+<div id="basket">🧺</div>
+</div>
+</div>
+
+<script>
+let duration=10,timeLeft=10,score=0,running=false;
+const game=document.getElementById("game");
+const basket=document.getElementById("basket");
+const basketArea=document.getElementById("basketArea");
+const msg=document.getElementById("message");
+const scoreEl=document.getElementById("score");
+const timeEl=document.getElementById("time");
+
+let apples=[],spawn,timer;
+
+document.querySelectorAll(".time").forEach(btn=>{
+ btn.onclick=()=>{
+  document.querySelectorAll(".time").forEach(x=>x.classList.remove("active"));
+  btn.classList.add("active");
+  duration=+btn.dataset.sec;
+  timeEl.textContent=duration;
+ };
+});
+
+document.getElementById("start").onclick=start;
+document.getElementById("reset").onclick=reset;
+
+function start(){
+ reset(false);
+ running=true;
+ timeLeft=duration;
+ score=0;
+ scoreEl.textContent=0;
+ timeEl.textContent=timeLeft;
+ msg.textContent="";
+
+ spawn=setInterval(makeApple,1200);
+
+ timer=setInterval(()=>{
+   timeLeft--;
+   timeEl.textContent=timeLeft;
+   if(timeLeft<=0) finish();
+ },1000);
+
+ requestAnimationFrame(loop);
+}
+
+function reset(clear=true){
+ running=false;
+ clearInterval(spawn);
+ clearInterval(timer);
+ apples.forEach(a=>a.el.remove());
+ apples=[];
+ if(clear){
+   scoreEl.textContent=0;
+   timeEl.textContent=duration;
+   msg.textContent="";
+ }
+}
+
+function finish(){
+ running=false;
+ clearInterval(spawn);
+ clearInterval(timer);
+ msg.textContent=`🎀 ${score}こ とれた！`;
+}
+
+function makeApple(){
+ if(!running) return;
+ const el=document.createElement("div");
+ el.className="apple";
+ el.textContent="🍎";
+ const x=80+Math.random()*(window.innerWidth-160);
+ game.appendChild(el);
+
+ apples.push({
+   x,
+   y:-40,
+   speed:1.0+Math.random()*0.35, /* さらに長く落ちる */
+   el
+ });
+}
+
+function loop(){
+ if(!running) return;
+
+ for(const a of apples){
+   a.y+=a.speed;
+   a.el.style.left=a.x+"px";
+   a.el.style.top=a.y+"px";
+
+   if(a.y>game.clientHeight+80){
+     a.remove=true;
+     a.el.remove();
+   }
+ }
+
+ apples=apples.filter(a=>!a.remove);
+ requestAnimationFrame(loop);
+}
+
+function moveBasket(clientX){
+ const rect=basketArea.getBoundingClientRect();
+ const x=Math.max(45,Math.min(clientX-rect.left,rect.width-45));
+ basket.style.left=x+"px";
+
+ if(!running) return;
+
+ const hit=apples.find(a=>
+   a.y>game.clientHeight-75 &&
+   Math.abs(a.x-x)<45
+ );
+
+ if(hit){
+   hit.remove=true;
+   hit.el.remove();
+   score++;
+   scoreEl.textContent=score;
+   msg.textContent="✨";
+   setTimeout(()=>{ if(running) msg.textContent=""; },250);
+ }
+}
+
+basketArea.addEventListener("touchstart",e=>moveBasket(e.touches[0].clientX));
+basketArea.addEventListener("touchmove",e=>{
+ e.preventDefault();
+ moveBasket(e.touches[0].clientX);
+},{passive:false});
+basketArea.addEventListener("click",e=>moveBasket(e.clientX));
+</script>
+</body>
+</html>
